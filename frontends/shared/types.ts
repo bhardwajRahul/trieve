@@ -476,13 +476,53 @@ export interface SearchQueryEvent {
   request_params: Record<string, unknown>;
   latency: number;
   top_score: number;
-  results: {
-    highlights?: unknown;
-    metadata: ChunkMetadataStringTagSet[];
-    score?: number;
-  }[];
+  results: ScoreChunkDTO[] | object[];
   dataset_id: string;
   created_at: string;
+  query_rating?: {
+    note?: string;
+    rating: number;
+  };
+}
+
+export interface ScoreChunkDTO {
+  highlights?: unknown;
+  metadata: ChunkMetadataStringTagSet[];
+  score?: number;
+}
+
+export function isScoreChunkDTO(data: unknown): data is ScoreChunkDTO {
+  if (typeof data !== "object" || data === null) {
+    return false;
+  }
+
+  if (!Array.isArray((data as ScoreChunkDTO).metadata)) {
+    return false;
+  }
+
+  if (
+    (data as ScoreChunkDTO).score !== undefined &&
+    typeof (data as ScoreChunkDTO).score !== "number"
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
+export interface RecommendationEvent {
+  created_at: string;
+  dataset_id: string;
+  id: string;
+  negative_ids: string[];
+  negative_tracking_ids: string[];
+  positive_ids: string[];
+  positive_tracking_ids: string[];
+  recommendation_type: string;
+  request_params: Record<string, unknown>;
+  results: ChunkMetadataStringTagSet[];
+  top_score: number;
+  user_id: string;
 }
 
 export interface CTRSearchQuery {
@@ -518,6 +558,11 @@ export interface RAGAnalyticsFilter {
   date_range?: DateRangeFilter;
 }
 
+export interface RecommendationsAnalyticsFilter {
+  date_range?: DateRangeFilter;
+  recommendation_type?: "chunk" | "group";
+}
+
 export type RAGSortBy = "created_at" | "latency";
 export type SearchSortBy = "created_at" | "latency" | "top_score";
 
@@ -532,6 +577,10 @@ export interface RagQueryEvent {
   llm_response: string;
   dataset_id: string;
   created_at: string;
+  query_rating?: {
+    note?: string;
+    rating: number;
+  };
 }
 
 export interface RAGUsageResponse {

@@ -1,0 +1,7 @@
+resources:
+  - ../trieve
+components:
+  - ../trieve/embeddings/components/gpu
+  - ./embeddings/components/gpu
+  - ingress-cert
+  - keycloak

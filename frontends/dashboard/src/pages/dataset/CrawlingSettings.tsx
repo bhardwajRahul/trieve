@@ -2,13 +2,18 @@ import { createMutation, createQuery } from "@tanstack/solid-query";
 import { Show, useContext } from "solid-js";
 import { DatasetContext } from "../../contexts/DatasetContext";
 import { useTrieve } from "../../hooks/useTrieve";
-import { CrawlInterval, CrawlOptions } from "trieve-ts-sdk";
+import {
+  CrawlInterval,
+  CrawlOpenAPIOptions,
+  CrawlOptions,
+} from "trieve-ts-sdk";
 import { createStore } from "solid-js/store";
 import { MultiStringInput, Select } from "shared/ui";
 import { toTitleCase } from "../../analytics/utils/titleCase";
 import { Spacer } from "../../components/Spacer";
 import { UserContext } from "../../contexts/UserContext";
 import { createToast } from "../../components/ShowToasts";
+import { ValidateFn } from "../../utils/validation";
 
 const defaultCrawlOptions: CrawlOptions = {
   boost_titles: false,
@@ -20,6 +25,22 @@ const defaultCrawlOptions: CrawlOptions = {
   limit: 1000,
   max_depth: 10,
   site_url: "",
+  openapi_options: null,
+};
+
+const normalizeOpenAPIOptions = (
+  options: CrawlOpenAPIOptions | null | undefined,
+) => {
+  if (options) {
+    if (options.openapi_schema_url === "") {
+      return null;
+    }
+    if (!options.openapi_tag && !options.openapi_schema_url) {
+      return null;
+    }
+    return options;
+  }
+  return null;
 };
 
 export const CrawlingSettings = () => {
@@ -46,7 +67,10 @@ export const CrawlingSettings = () => {
     mutationFn: async (options: CrawlOptions) => {
       await trieve.fetch("/api/dataset", "put", {
         data: {
-          crawl_options: options,
+          crawl_options: {
+            ...options,
+            openapi_options: normalizeOpenAPIOptions(options.openapi_options),
+          },
           dataset_id: datasetId(),
         },
         organizationId: userContext.selectedOrg().id,
@@ -97,14 +121,6 @@ const Error = (props: { error: string | null | undefined }) => {
   );
 };
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type ValidateFn<T extends Record<string, any>> = (value: T) => {
-  errors: {
-    [key in keyof T]: string | undefined;
-  };
-  valid: boolean;
-};
-
 const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
   const [options, setOptions] = createStore(props.initialCrawlingSettings);
   const [errors, setErrors] = createStore<
@@ -112,7 +128,6 @@ const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
   >({});
 
   const validate: ValidateFn<CrawlOptions> = (value) => {
-    console.log(value);
     const errors: Record<string, string> = {};
     if (!value.site_url) {
       errors.site_url = "Site URL is required";
@@ -127,6 +142,12 @@ const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
     }
     if (!value.max_depth) {
       errors.max_depth = "Max depth must be greater than 0";
+    }
+    if (
+      value.openapi_options?.openapi_tag &&
+      !value.openapi_options.openapi_schema_url
+    ) {
+      errors.openapi_options = "OpenAPI Schema URL is required for tag";
     }
 
     return {
@@ -193,8 +214,8 @@ const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
         />
       </div>
 
-      <div class="flex gap-4">
-        <div class="pt-2">
+      <div class="flex gap-4 pt-2">
+        <div>
           <label class="block" for="">
             Page Limit
           </label>
@@ -203,12 +224,12 @@ const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
             onInput={(e) => {
               setOptions("limit", parseInt(e.currentTarget.value));
             }}
-            class="block rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
+            class="block max-w-[100px] rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
             type="number"
           />
           <Error error={errors.limit} />
         </div>
-        <div class="pt-2">
+        <div>
           <label class="block" for="">
             Max Depth
           </label>
@@ -217,10 +238,50 @@ const RealCrawlingSettings = (props: RealCrawlingSettingsProps) => {
             onInput={(e) => {
               setOptions("max_depth", parseInt(e.currentTarget.value));
             }}
-            class="block rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
+            class="block max-w-[100px] rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
             type="number"
           />
           <Error error={errors.max_depth} />
+        </div>
+        <div class="grow">
+          <label class="block" for="">
+            OpenAPI Schema URL
+          </label>
+          <input
+            placeholder="https://example.com/openapi.json"
+            value={options.openapi_options?.openapi_schema_url || ""}
+            onInput={(e) => {
+              if (!options.openapi_options) {
+                setOptions("openapi_options", {});
+              }
+              setOptions(
+                "openapi_options",
+                "openapi_schema_url",
+                e.currentTarget.value,
+              );
+            }}
+            class="block w-full rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
+          />
+          <Error error={errors.openapi_options} />
+        </div>
+        <div class="grow">
+          <label class="block" for="">
+            OpenAPI Tag
+          </label>
+          <input
+            value={options.openapi_options?.openapi_tag || ""}
+            onInput={(e) => {
+              if (!options.openapi_options) {
+                setOptions("openapi_options", {});
+              }
+              setOptions(
+                "openapi_options",
+                "openapi_tag",
+                e.currentTarget.value,
+              );
+            }}
+            class="block w-full rounded border border-neutral-300 px-3 py-1.5 shadow-sm placeholder:text-neutral-400 focus:outline-magenta-500 sm:text-sm sm:leading-6"
+          />
         </div>
       </div>
       <div class="grid w-full grid-cols-2 justify-stretch gap-4 pt-4 xl:grid-cols-4">

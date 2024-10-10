@@ -52,7 +52,7 @@ export const RAGFilterBar = (props: FilterBarProps) => {
       <div class="flex items-center gap-2">
         <div>
           <Select
-            label={<div class="text-sm text-neutral-600">Search Method</div>}
+            label={<div class="text-sm text-neutral-600">RAG Method</div>}
             class="min-w-[200px] !bg-white"
             display={(s) => (s ? toTitleCase(s) : "All")}
             selected={props.filters.rag_type}

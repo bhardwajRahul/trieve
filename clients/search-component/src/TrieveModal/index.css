@@ -126,14 +126,14 @@ body {
       border-color: var(--tv-zinc-200);
 
       &.search {
-        @apply border-t;
+        @apply border-t pt-1;
       }
 
       .bottom-row {
         @apply flex justify-between;
 
         button {
-          @apply rounded px-2 text-sm py-1 border;
+          @apply px-2 text-sm py-1 border;
           color: var(--tv-zinc-700);
           border-color: var(--tv-zinc-300);
 
@@ -190,7 +190,6 @@ body {
             &:hover,
             &.active {
               opacity: 100%;
-
             }
           }
         }
@@ -210,8 +209,42 @@ body {
         }
       }
 
+      .additional-image-links {
+        @apply grid grid-cols-3 gap-2 mt-4;
+
+        a {
+          @apply rounded px-2 text-xs py-1 line-clamp-2 overflow-ellipsis grid-rows-2;
+          color: var(--tv-zinc-700);
+          background-color: var(--tv-zinc-300);
+
+          &:hover {
+            color: var(--tv-zinc-950);
+          }
+        }
+
+        .ecomm-details {
+          @apply flex gap-1 items-center;
+        }
+
+        .ecomm-item-title {
+          @apply p-0 mb-0.5 line-clamp-2;
+        }
+
+        .ecomm-item-price {
+          @apply p-0 mb-0.5;
+        }
+
+        .ecommerce-featured-image-chat {
+          @apply mb-1;
+        }
+      }
+
       .user {
         @apply flex gap-1 text-center items-center my-5;
+
+        .user-text {
+          @apply text-left;
+        }
       }
 
       .loading-system {
@@ -221,6 +254,7 @@ body {
 
       .system {
         @apply mt-2 sm:mt-8 mb-5 items-center sm:max-w-[46vw] overflow-ellipsis;
+
         p {
           @apply pb-1;
         }
@@ -347,7 +381,7 @@ body {
           }
 
           img {
-            @apply w-7 h-7 sm:w-3/4 sm:h-3/4 sm:mx-auto sm:mt-2;
+            @apply w-7 max-h-7 sm:w-3/4 sm:h-3/4 sm:mx-auto sm:mt-2;
           }
 
           svg {
@@ -364,6 +398,29 @@ body {
         }
       }
     }
+
+    /* ECOMMERCE */
+
+    .ecommerce-featured-image {
+      @apply w-8 max-h-8 mr-4 shrink-0;
+
+      img {
+        @apply w-8 max-h-8 shrink-0;
+      }
+    }
+
+    .variants {
+      @apply flex flex-wrap gap-1 items-center text-zinc-700 mt-1;
+
+      button {
+        @apply text-[11px] px-1 border-zinc-200 border rounded-sm;
+      }
+
+      .variants-title {
+        @apply text-[11px];
+      }
+    }
+
     /* SUGGESTED QUESTIONS */
 
     .system-information-wrapper {
@@ -491,6 +548,38 @@ body {
       @apply select-none cursor-pointer px-3 py-2 text-left flex items-start gap-2 w-full text-sm outline-none rounded-lg;
       background-color: var(--tv-zinc-50);
 
+      .post-method {
+        @apply text-xs bg-blue-900 px-1 py-0.5 rounded-md text-blue-400 mr-1;
+      }
+
+      .get-method {
+        @apply text-xs bg-green-900 px-1 py-0.5 rounded-md text-green-400 mr-1;
+      }
+
+      .delete-method {
+        @apply text-xs bg-red-900 px-1 py-0.5 rounded-md text-red-400 mr-1;
+      }
+
+      .put-method {
+        @apply text-xs bg-yellow-900 px-1 py-0.5 rounded-md text-yellow-400 mr-1;
+      }
+
+      .patch-method {
+        @apply text-xs bg-purple-900 px-1 py-0.5 rounded-md text-purple-400 mr-1;
+      }
+
+      h4 {
+        @apply overflow-hidden whitespace-nowrap text-ellipsis max-w-[450px];
+      }
+
+      svg {
+        @apply shrink-0 w-8;
+      }
+
+      mark {
+        @apply text-fuchsia-600 bg-inherit;
+      }
+
       &.start-chat {
         @apply items-center flex;
 
@@ -506,6 +595,7 @@ body {
           @apply justify-start gap-4;
 
           > svg {
+            @apply shrink-0 w-8;
             color: var(--tv-prop-brand-color);
           }
         }
@@ -543,7 +633,13 @@ body {
       .ai-message .message-wrapper {
         border-color: var(--tv-zinc-600);
       }
+      .variants {
+        @apply text-zinc-300;
 
+        button {
+          @apply border-zinc-700;
+        }
+      }
       .bottom-row {
         button {
           color: var(--tv-zinc-300);
@@ -588,6 +684,15 @@ body {
 
       .system-information-wrapper {
         .questions {
+          .suggested-question {
+            border-color: var(--tv-zinc-700);
+
+            &:hover {
+              background-color: var(--tv-zinc-800);
+            }
+          }
+        }
+        .header {
           .suggested-question {
             border-color: var(--tv-zinc-700);
 

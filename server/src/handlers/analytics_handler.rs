@@ -2,13 +2,16 @@ use super::auth_handler::AdminOnly;
 use crate::{
     data::models::{
         CTRAnalytics, CTRAnalyticsResponse, CTRType, ClusterAnalytics, ClusterAnalyticsResponse,
-        DatasetAndOrgWithSubAndPlan, DateRange, EventDataClickhouse, EventTypes,
-        GetEventsRequestBody, OrganizationWithSubAndPlan, Pool, RAGAnalytics, RAGAnalyticsResponse,
+        DatasetAndOrgWithSubAndPlan, DateRange, EventDataTypes, EventTypes, GetEventsRequestBody,
+        OrganizationWithSubAndPlan, Pool, RAGAnalytics, RAGAnalyticsResponse,
         RecommendationAnalytics, RecommendationAnalyticsResponse, SearchAnalytics,
         SearchAnalyticsResponse, TopDatasetsRequestTypes,
     },
     errors::ServiceError,
-    operators::analytics_operator::*,
+    operators::{
+        analytics_operator::*,
+        clickhouse_operator::{ClickHouseEvent, EventQueue},
+    },
 };
 use actix_web::{web, HttpResponse};
 use serde::{Deserialize, Serialize};
@@ -29,7 +32,7 @@ use utoipa::ToSchema;
         (status = 400, description = "Service error relating to getting cluster analytics", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -88,7 +91,7 @@ pub struct RateQueryRequest {
         (status = 400, description = "Service error relating to rating a search query", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -126,7 +129,7 @@ pub async fn set_search_query_rating(
         (status = 400, description = "Service error relating to rating a RAG query", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -164,7 +167,7 @@ pub async fn set_rag_query_rating(
         (status = 400, description = "Service error relating to getting search analytics", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -321,7 +324,7 @@ pub async fn get_search_analytics(
         (status = 400, description = "Service error relating to getting RAG analytics", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -407,7 +410,7 @@ pub async fn get_rag_analytics(
         (status = 400, description = "Service error relating to getting recommendation analytics", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -454,6 +457,15 @@ pub async fn get_recommendation_analytics(
             .await?;
             RecommendationAnalyticsResponse::RecommendationQueries(recommendation_queries)
         }
+        RecommendationAnalytics::QueryDetails { request_id } => {
+            let recommendation_query = get_recommendation_query(
+                dataset_org_plan_sub.dataset.id,
+                request_id,
+                clickhouse_client.get_ref(),
+            )
+            .await?;
+            RecommendationAnalyticsResponse::QueryDetails(recommendation_query)
+        }
     };
 
     Ok(HttpResponse::Ok().json(response))
@@ -490,7 +502,7 @@ pub struct CTRDataRequestBody {
         (status = 400, description = "Service error relating to sending CTR data", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -503,11 +515,12 @@ pub async fn send_ctr_data(
     clickhouse_client: web::Data<clickhouse::Client>,
     dataset_org_plan_sub: DatasetAndOrgWithSubAndPlan,
 ) -> Result<HttpResponse, ServiceError> {
-    let event_data = EventDataClickhouse::from_event_data(
-        data.into_inner().into(),
-        dataset_org_plan_sub.dataset.id,
-    );
-    send_event_data_query(event_data, clickhouse_client.get_ref()).await?;
+    let event_data =
+        EventTypes::from(data.into_inner()).to_event_data(dataset_org_plan_sub.dataset.id);
+
+    if let EventDataTypes::EventDataClickhouse(event_data) = event_data {
+        send_event_data_query(event_data, clickhouse_client.get_ref()).await?;
+    }
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -527,7 +540,7 @@ pub async fn send_ctr_data(
         (status = 400, description = "Service error relating to sending event data", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -537,13 +550,33 @@ pub async fn send_event_data(
     _user: AdminOnly,
     data: web::Json<EventTypes>,
     clickhouse_client: web::Data<clickhouse::Client>,
-
+    event_queue: web::Data<EventQueue>,
     dataset_org_plan_sub: DatasetAndOrgWithSubAndPlan,
 ) -> Result<HttpResponse, ServiceError> {
-    let event_data =
-        EventDataClickhouse::from_event_data(data.into_inner(), dataset_org_plan_sub.dataset.id);
+    let event_data = data
+        .into_inner()
+        .to_event_data(dataset_org_plan_sub.dataset.id);
 
-    send_event_data_query(event_data, clickhouse_client.get_ref()).await?;
+    match event_data {
+        EventDataTypes::EventDataClickhouse(event_data) => {
+            send_event_data_query(event_data, clickhouse_client.get_ref()).await?;
+        }
+        EventDataTypes::SearchQueryEventClickhouse(event_data) => {
+            event_queue
+                .send(ClickHouseEvent::SearchQueryEvent(event_data))
+                .await;
+        }
+        EventDataTypes::RagQueryEventClickhouse(event_data) => {
+            event_queue
+                .send(ClickHouseEvent::RagQueryEvent(event_data))
+                .await;
+        }
+        EventDataTypes::RecommendationEventClickhouse(event_data) => {
+            event_queue
+                .send(ClickHouseEvent::RecommendationEvent(event_data))
+                .await;
+        }
+    }
 
     Ok(HttpResponse::NoContent().finish())
 }
@@ -563,7 +596,7 @@ pub async fn send_event_data(
         (status = 400, description = "Service error relating to getting CTR analytics", body = ErrorResponseBody),
     ),
     params(
-        ("TR-Dataset" = String, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
+        ("TR-Dataset" = uuid::Uuid, Header, description = "The dataset id or tracking_id to use for the request. We assume you intend to use an id if the value is a valid uuid."),
     ),
     security(
         ("ApiKey" = ["admin"]),
@@ -695,7 +728,7 @@ pub struct GetTopDatasetsRequestBody {
     tag = "Analytics",
     request_body(content = GetTopDatasetsRequestBody, description = "JSON request payload to filter the top datasets", content_type = "application/json"),
     params(
-        ("TR-Organization" = String, Header, description = "The organization id to use for the request"),
+        ("TR-Organization" = uuid::Uuid, Header, description = "The organization id to use for the request"),
     ),
     responses(
         (status = 200, description = "The top datasets for the request", body = Vec<TopDatasetsResponse>),

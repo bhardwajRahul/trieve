@@ -1,5 +1,5 @@
 import { Chunk, ChunkWithHighlights } from "../../utils/types";
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { ArrowIcon } from "../icons";
 import { useModalState } from "../../utils/hooks/modal-context";
 import { sendCtrData } from "../../utils/trieve";
@@ -28,6 +28,11 @@ export const Item = ({ item, requestID, index }: Props) => {
   });
   descriptionHtml = $descriptionHtml.html() || "";
 
+  const openapiRequestVerb = load(item.chunk.chunk_html || "")
+    .root()
+    .find(".openapi-method")
+    .text();
+
   const chunkHtmlHeadings = load(item.chunk.chunk_html || "")
     .root()
     .find("h1, h2, h3, h4, h5, h6")
@@ -54,12 +59,46 @@ export const Item = ({ item, requestID, index }: Props) => {
     );
   }
   descriptionHtml = descriptionHtml.replace(/([.,!?;:])/g, "$1 ");
-
-  const title =
+  const [shownImage, setShownImage] = useState<string>(
+    item.chunk?.image_urls?.[0] || ""
+  );
+  const price = item.chunk.num_value
+    ? ` - ${props.currencyPosition === "before" ? props.defaultCurrency : ""}${
+        item.chunk.num_value
+      }${props.currencyPosition === "after" ? props.defaultCurrency : ""}`
+    : "";
+  let title = `  ${
     cleanFirstHeading ||
     item.chunk.metadata?.title ||
     item.chunk.metadata?.page_title ||
-    item.chunk.metadata?.name;
+    item.chunk.metadata?.name
+  }  ${price}`;
+
+  switch (openapiRequestVerb) {
+    case "POST":
+      title = title.replace("POST", '<span class="post-method">POST</span>');
+      break;
+    case "GET":
+      title = title.replace("GET", '<span class="get-method">GET</span>');
+      break;
+    case "PUT":
+      title = title.replace("PUT", '<span class="put-method">PUT</span>');
+      break;
+    case "DELETE":
+      title = title.replace(
+        "DELETE",
+        '<span class="delete-method">DELETE</span>'
+      );
+      break;
+    case "PATCH":
+      title = title.replace(
+        "PATCH",
+        '<span class="patch-method">PATCH</span>'
+      );
+      break;
+    default:
+      break;
+  }
 
   const checkForUpAndDown = (e: KeyboardEvent) => {
     if (e.code === "ArrowDown" || e.code === "ArrowUp") {
@@ -118,10 +157,16 @@ export const Item = ({ item, requestID, index }: Props) => {
           : {})}
       >
         <div>
-          {props.showImages &&
-          item.chunk.image_urls?.length &&
-          item.chunk.image_urls[0] ? (
-            <img src={item.chunk.image_urls[0]} />
+          {props.type === "ecommerce" ? (
+            item.chunk.image_urls?.length && item.chunk.image_urls[0] ? (
+              <img src={shownImage} className="ecommerce-featured-image" />
+            ) : (
+              <div className="ecommerce-featured-image">
+                {props.brandLogoImgSrcUrl ? (
+                  <img src={props.brandLogoImgSrcUrl} />
+                ) : null}
+              </div>
+            )
           ) : null}
           {title ? (
             <div>
@@ -136,6 +181,34 @@ export const Item = ({ item, requestID, index }: Props) => {
                   __html: descriptionHtml,
                 }}
               />
+              {props.type === "ecommerce" ? (
+                <>
+                  {item.chunk.metadata?.variants?.length > 1 ? (
+                    <div className="variants">
+                      <span className="variants-title">Variants:</span>
+                      {(
+                        item.chunk.metadata.variants as unknown as {
+                          featured_image: { src: string };
+                          title: string;
+                        }[]
+                      )?.map((variant) => (
+                        <button
+                          onClick={(ev) => {
+                            ev.preventDefault();
+                            ev.stopPropagation();
+                            ev.nativeEvent.stopImmediatePropagation();
+                            if (variant.featured_image?.src) {
+                              setShownImage(variant.featured_image?.src);
+                            }
+                          }}
+                        >
+                          {variant.title}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </>
+              ) : null}
             </div>
           ) : (
             <p

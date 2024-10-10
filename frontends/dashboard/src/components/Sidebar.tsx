@@ -5,13 +5,14 @@ import { A, useLocation } from "@solidjs/router";
 import {
   AiOutlineBarChart,
   AiOutlineCamera,
+  AiOutlineCaretDown,
+  AiOutlineFilter,
   AiOutlineHistory,
   AiOutlineInfoCircle,
   AiOutlineKey,
   AiOutlineLeft,
   AiOutlineMessage,
   AiOutlineSearch,
-  AiOutlineTable,
 } from "solid-icons/ai";
 import { Spacer } from "./Spacer";
 import { Portal } from "solid-js/web";
@@ -143,6 +144,21 @@ export const DashboardSidebar = () => {
               label="API Keys"
             />
           </div>
+          <div class="gap flex flex-col pt-6">
+            <SectionLabel>Playgrounds</SectionLabel>
+            <Link
+              isExternal={true}
+              icon={AiOutlineSearch}
+              href={`${searchUiURL}${orgDatasetParams()}`}
+              label="Search"
+            />
+            <Link
+              isExternal={true}
+              icon={AiOutlineMessage}
+              href={`${chatUiURL}${orgDatasetParams()}`}
+              label="Chat"
+            />
+          </div>
           <div class="gap flex flex-col pt-4">
             <SectionLabel>Analytics</SectionLabel>
             <Link
@@ -153,28 +169,45 @@ export const DashboardSidebar = () => {
             />
             <Link
               isExternal={false}
-              icon={AiOutlineSearch}
-              href={`/dataset/${datasetId()}/analytics/search`}
-              label="Search"
-            />
-            <Link
-              isExternal={false}
-              icon={AiOutlineMessage}
-              href={`/dataset/${datasetId()}/analytics/rag`}
-              label="RAG"
-            />
-            <Link
-              isExternal={false}
               icon={AiOutlineBarChart}
               href={`/dataset/${datasetId()}/analytics/trends`}
               label="Trend Explorer"
             />
-            <Link
-              isExternal={false}
-              icon={AiOutlineTable}
+            <A
               href={`/dataset/${datasetId()}/analytics/data/searches`}
-              label="Data Explorer"
-            />
+              class="flex cursor-pointer items-center justify-between gap-2 rounded-md p-1 px-2 hover:underline"
+              classList={{
+                "bg-magenta-200/10":
+                  pathname.pathname.includes("/analytics/data"),
+              }}
+            >
+              <div class="flex items-center gap-2">
+                <div class="pl-[2px]">
+                  <AiOutlineCaretDown size={12} />
+                </div>
+                Data Explorer
+              </div>
+            </A>
+            <div class="pl-6">
+              <Link
+                isExternal={false}
+                icon={AiOutlineSearch}
+                href={`/dataset/${datasetId()}/analytics/data/searches`}
+                label="Searches"
+              />
+              <Link
+                isExternal={false}
+                icon={AiOutlineMessage}
+                href={`/dataset/${datasetId()}/analytics/data/messages`}
+                label="RAG Messages"
+              />
+              <Link
+                isExternal={false}
+                icon={AiOutlineFilter}
+                href={`/dataset/${datasetId()}/analytics/data/recommendations`}
+                label="Recommendations"
+              />
+            </div>
           </div>
           <div class="gap flex flex-col pt-4">
             <SectionLabel>Dataset Settings</SectionLabel>
@@ -201,21 +234,6 @@ export const DashboardSidebar = () => {
               icon={FiTrash}
               href={`/dataset/${datasetId()}/manage`}
               label="Manage Dataset"
-            />
-          </div>
-          <div class="gap flex flex-col pt-6">
-            <SectionLabel>Playgrounds</SectionLabel>
-            <Link
-              isExternal={true}
-              icon={AiOutlineSearch}
-              href={`${searchUiURL}${orgDatasetParams()}`}
-              label="Search"
-            />
-            <Link
-              isExternal={true}
-              icon={AiOutlineMessage}
-              href={`${chatUiURL}${orgDatasetParams()}`}
-              label="Chat"
             />
           </div>
         </div>

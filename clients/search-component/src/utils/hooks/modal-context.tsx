@@ -15,6 +15,8 @@ import { countChunks, searchWithTrieve } from "../trieve";
 
 export const ALL_TAG = { tag: "all", label: "All", icon: null };
 
+type currencyPosition = "before" | "after";
+type ModalTypes = "ecommerce" | "docs";
 type SearchModes = "chat" | "search";
 type searchOptions = Omit<
   Omit<AutocompleteReqPayload, "query">,
@@ -23,7 +25,6 @@ type searchOptions = Omit<
 export type ModalProps = {
   trieve: TrieveSDK;
   onResultClick?: (chunk: Chunk) => void;
-  showImages?: boolean;
   theme?: "light" | "dark";
   searchOptions?: searchOptions;
   placeholder?: string;
@@ -40,9 +41,13 @@ export type ModalProps = {
   tags?: {
     tag: string;
     label?: string;
+    selected?: boolean;
     icon?: () => JSX.Element;
   }[];
   defaultSearchMode?: SearchModes;
+  type?: ModalTypes;
+  defaultCurrency?: string;
+  currencyPosition?: currencyPosition;
 };
 
 const defaultProps = {
@@ -57,6 +62,8 @@ const defaultProps = {
   suggestedQueries: true,
   trieve: (() => {}) as unknown as TrieveSDK,
   openKeyCombination: [{ ctrl: true }, { key: "k", label: "K" }],
+  type: "docs" as ModalTypes,
+  currencyPosition: "after" as currencyPosition,
 };
 
 const ModalContext = createContext<{
@@ -121,7 +128,9 @@ function ModalProvider({
   const [mode, setMode] = useState(props.defaultSearchMode || "search");
   const modalRef = useRef<HTMLDivElement>(null);
   const [tagCounts, setTagCounts] = useState<CountChunkQueryResponseBody[]>([]);
-  const [currentTag, setCurrentTag] = useState("all");
+  const [currentTag, setCurrentTag] = useState(
+    props.tags?.find((t) => t.selected)?.tag || "all",
+  );
 
   useEffect(() => {
     setProps((p) => ({
@@ -176,8 +185,8 @@ function ModalProvider({
             trieve: props.trieve,
             abortController,
             ...(tag.tag !== "all" && { tag: tag.tag }),
-          })
-        )
+          }),
+        ),
       );
       setTagCounts(numberOfRecords);
     }
@@ -218,8 +227,7 @@ function ModalProvider({
         currentTag,
         setCurrentTag,
         tagCounts,
-      }}
-    >
+      }}>
       {children}
     </ModalContext.Provider>
   );
